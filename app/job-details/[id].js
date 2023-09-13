@@ -30,11 +30,15 @@ const JobDetails = ({ navigation, route }) => {
                     title = "Qualifications"
                     points = {data[0].job_highlights?.Qualifications ?? ['N/A']} 
                     />;
-                    break;
                 case "About":
-                    break;
+                    return <JobAbout 
+                            info = {data[0].job_description ?? "NoData"} 
+                            />
                 case "Responsibilities":
-                    break;
+                    return <Specifics 
+                    title = "Responsibilities"
+                    points = {data[0].job_highlights?.Responsibilities ?? ['N/A']} 
+                    />;
             }
         }
     
@@ -90,6 +94,7 @@ const JobDetails = ({ navigation, route }) => {
                                     jobTitle={data[0].job_title}
                                     companyLocation={data[0].location} 
                                 />
+                              
                                 <JobTabs
                                     tabs={tabs}
                                     activeTab={activeTab}
@@ -102,6 +107,7 @@ const JobDetails = ({ navigation, route }) => {
                     }
                 
             </ScrollView>
+            <JobFooter url={data[0]?.job_google_link ?? "https://www.google.com"} />
         </>
        </SafeAreaView>
     )
