@@ -1,116 +1,136 @@
-import { useCallback, useState } from "react";
-import {Company, JobAbout, JobFooter, JobTabs, ScreenHeaderBtn,
-Specifics } from "../../components";
-import useFetch from "../../hook/useFetch";
-import { COLOR, icons, SIZES } from "../../constants";
-import { ActivityIndicator, RefreshControl, SafeAreaView,ScrollView,Text, View } from "react-native";
-import { COLORS } from "../../constants";
-import { useSearchParams,useRouter,Stack } from "expo-router";
+import React, { useEffect, useState } from 'react'
+import { ActivityIndicator, FlatList, Image, TouchableOpacity, View } from 'react-native'
+import { Stack, useRouter, useSearchParams } from 'expo-router'
+import { Text, SafeAreaView } from 'react-native'
+import axios from 'axios'
 
+import { ScreenHeaderBtn, NearbyJobCard } from '../../components'
+import { COLORS, icons, SIZES } from '../../constants'
+import styles from '../../styles/search'
 
-const tabs = ["About", "Qualifications", "Responsibilities"];
-
-const JobDetails = ({ navigation, route }) => {
+const JobSearch = () => {
     const params = useSearchParams();
-    const router = useRouter();
+    const router = useRouter()
 
+    const [searchResult, setSearchResult] = useState([]);
+    const [searchLoader, setSearchLoader] = useState(false);
+    const [searchError, setSearchError] = useState(null);
+    const [page, setPage] = useState(1);
 
-    const {data, isLoading, error, refetch} = useFetch('job-details', {
-        job_id: params.id});
+    const handleSearch = async () => {
+        setSearchLoader(true);
+        setSearchResult([])
 
-        const [refreshing, setRefreshing] = useState(false);
-        const [activeTab, setActiveTab] = useState(tabs[0]);
+        try {
+            const options = {
+                method: "GET",
+                url: `https://jsearch.p.rapidapi.com/search`,
+                headers: {
+                    "X-RapidAPI-Key": '94c376bb06msh0ebe9da93af7056p199cc1jsn357ff5e8a4fc',
+                    "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
+                },
+                params: {
+                    query: params.id,
+                    page: page.toString(),
+                },
+            };
 
-        onRefresh = ()=>{}
-
-        const displayTabContent = () =>{
-            switch(activeTab){
-                case "Qualifications":
-                    return <Specifics 
-                    title = "Qualifications"
-                    points = {data[0].job_highlights?.Qualifications ?? ['N/A']} 
-                    />;
-                case "About":
-                    return <JobAbout 
-                            info = {data[0].job_description ?? "NoData"} 
-                            />
-                case "Responsibilities":
-                    return <Specifics 
-                    title = "Responsibilities"
-                    points = {data[0].job_highlights?.Responsibilities ?? ['N/A']} 
-                    />;
-            }
+            const response = await axios.request(options);
+            setSearchResult(response.data.data);
+        } catch (error) {
+            setSearchError(error);
+            console.log(error);
+        } finally {
+            setSearchLoader(false);
         }
-    
+    };
 
-       // console.log('data', data);
+    const handlePagination = (direction) => {
+        if (direction === 'left' && page > 1) {
+            setPage(page - 1)
+            handleSearch()
+        } else if (direction === 'right') {
+            setPage(page + 1)
+            handleSearch()
+        }
+    }
+
+    useEffect(() => {
+        handleSearch()
+    }, [])
+
     return (
-       <SafeAreaView style={{felx: 1, backgroundClor: COLORS.lightWhite}}>
-        <Text>Job Details for </Text>
-        <Stack.Screen
-            options = {{
-                headerStyle: { backgroundColor: COLORS.lightWhite,
-                headerShadowVisible : false,
-                headerBackVisible: false,
-                headerLeft: () => (
-                    <ScreenHeaderBtn
-                        iconUrl={icons.left}
-                        dimension="60%"
-                        handelPress={()=> router.back()}
-                    />
-                ),
-                headerRight: () => (
-                    <ScreenHeaderBtn
-                        iconUrl={icons.share}
-                        dimension="60%"
-                        handelPress={()=> alert('share')}
-                    />
-                ),
-                headerTitle: '',
-            }
-            }}
-        /> 
-        <>
-            <ScrollView showsVerticalScrollIndicator={false}
-                refreshControl={ 
-                    <RefreshControl 
-                        refreshing={refreshing} 
-                        onRefresh={onRefresh}
+        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.lightWhite }}>
+            <Stack.Screen
+                options={{
+                    headerStyle: { backgroundColor: COLORS.lightWhite },
+                    headerShadowVisible: false,
+                    headerLeft: () => (
+                        <ScreenHeaderBtn
+                            iconUrl={icons.left}
+                            dimension='60%'
+                            handlePress={() => router.back()}
                         />
-                    }
-                >
-                    {
-                        isLoading ? (
-                            <ActivityIndicator size="large" color={COLORS.primary} />
-                        ): error ? (
-                            <Text>{error}</Text>
-                        ): data.length === 0 ? (
-                            <Text>There is no data</Text>
-                        ): (
-                            <View style={{padding: SIZES.medium, paddingBottom: 100}}>
-                                <Company 
-                                    companyLogo={data[0].employer_logo}
-                                    companyName={data[0].employer_name}
-                                    jobTitle={data[0].job_title}
-                                    companyLocation={data[0].location} 
-                                />
-                              
-                                <JobTabs
-                                    tabs={tabs}
-                                    activeTab={activeTab}
-                                    setActiveTab={setActiveTab}
-                                
-                                />
-                                {displayTabContent()}
-                            </View>
-                        )
-                    }
-                
-            </ScrollView>
-            <JobFooter url={data[0]?.job_google_link ?? "https://www.google.com"} />
-        </>
-       </SafeAreaView>
+                    ),
+                    headerTitle: "",
+                }}
+            />
+
+            <FlatList
+                data={searchResult}
+                renderItem={({ item }) => (
+                    <NearbyJobCard
+                        job={item}
+                        handleNavigate={() => router.push(`/job-details/${item.job_id}`)}
+                    />
+                )}
+                keyExtractor={(item) => item.job_id}
+                contentContainerStyle={{ padding: SIZES.medium, rowGap: SIZES.medium }}
+                ListHeaderComponent={() => (
+                    <>
+                        <View style={styles.container}>
+                            <Text style={styles.searchTitle}>{params.id}</Text>
+                            <Text style={styles.noOfSearchedJobs}>Job Opportunities</Text>
+                        </View>
+                        <View style={styles.loaderContainer}>
+                            {searchLoader ? (
+                                <ActivityIndicator size='large' color={COLORS.primary} />
+                            ) : searchError && (
+                                <Text>Oops something went wrong</Text>
+                            )}
+                        </View>
+                    </>
+                )}
+                ListFooterComponent={() => (
+                    <View style={styles.footerContainer}>
+                        <TouchableOpacity
+                            style={styles.paginationButton}
+                            onPress={() => handlePagination('left')}
+                        >
+                            <Image
+                                source={icons.chevronLeft}
+                                style={styles.paginationImage}
+                                resizeMode="contain"
+                            />
+                        </TouchableOpacity>
+                        <View style={styles.paginationTextBox}>
+                            <Text style={styles.paginationText}>{page}</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.paginationButton}
+                            onPress={() => handlePagination('right')}
+                        >
+                            <Image
+                                source={icons.chevronRight}
+                                style={styles.paginationImage}
+                                resizeMode="contain"
+                            />
+                        </TouchableOpacity>
+                    </View>
+                )}
+            />
+        </SafeAreaView>
     )
 }
 
-export default JobDetails;
+export default JobSearch
